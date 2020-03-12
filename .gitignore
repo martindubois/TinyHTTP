@@ -1,0 +1,9 @@
+
+# Author         Martin Dubois, P.Eng
+# Learning path  Secure C/C++
+# File           .gitigore
+
+/Binaries/
+
+*.bak
+*.o
