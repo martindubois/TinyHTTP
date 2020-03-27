@@ -258,6 +258,17 @@ int ProcessRequest(int aSocket)
 
     Trace("Processing request ...");
 
+    struct timeval lTimeout;
+
+    memset(&lTimeout, 0, sizeof(lTimeout));
+
+    lTimeout.tv_sec = 1;
+
+    if (0 != setsockopt(aSocket, SOL_SOCKET, SO_RCVTIMEO, &lTimeout, sizeof(lTimeout)))
+    {
+        DisplayError("ERROR", "setsockopt( , , , ,  ) failed");
+    }
+
     char lBuffer[1024];
 
     memset(lBuffer, 0, sizeof(lBuffer));
