@@ -42,6 +42,8 @@ typedef std::list<AddressMaskPair> AddressMaskPairList;
 // Constants
 /////////////////////////////////////////////////////////////////////////////
 
+#define MAX_REQUEST_SIZE_byte (1024)
+
 #define RESULT_CONTINUE (1)
 #define RESULT_STOP     (2)
 
@@ -237,7 +239,7 @@ int ProcessRequest(int aSocket, const char * aRequest)
     assert(   0 <  aSocket );
     assert(NULL != aRequest);
 
-    char lRequest[16];
+    char lRequest[MAX_REQUEST_SIZE_byte];
     int  lResult = RESULT_CONTINUE;
 
     if (1 == sscanf(aRequest, "GET %s", lRequest))
@@ -269,11 +271,11 @@ int ProcessRequest(int aSocket)
         DisplayError("ERROR", "setsockopt( , , , ,  ) failed");
     }
 
-    char lBuffer[1024];
+    char lBuffer[MAX_REQUEST_SIZE_byte];
 
     memset(lBuffer, 0, sizeof(lBuffer));
 
-    ssize_t lSize_byte = read(aSocket, lBuffer, sizeof(lBuffer));
+    ssize_t lSize_byte = read(aSocket, lBuffer, sizeof(lBuffer) - 1);
 
     Trace(lBuffer);
 
