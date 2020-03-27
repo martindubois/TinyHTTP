@@ -15,6 +15,9 @@
 #include <time.h>
 #include <unistd.h>
 
+// ===== C++ ================================================================
+#include <list>
+
 // ===== System =============================================================
 #include <sys/socket.h>
 
@@ -24,11 +27,28 @@
 // ===== ARPA ===============================================================
 #include <arpa/inet.h>
 
+// Data types
+/////////////////////////////////////////////////////////////////////////////
+
+typedef struct
+{
+    in_addr mAddress;
+    in_addr mMask   ;
+}
+AddressMaskPair;
+
+typedef std::list<AddressMaskPair> AddressMaskPairList;
+
 // Constants
 /////////////////////////////////////////////////////////////////////////////
 
 #define RESULT_CONTINUE (1)
 #define RESULT_STOP     (2)
+
+// Static variable
+/////////////////////////////////////////////////////////////////////////////
+
+static AddressMaskPairList sAllowedClients;
 
 // Static function declarations
 /////////////////////////////////////////////////////////////////////////////
@@ -46,6 +66,8 @@ static int ProcessRequest (int aSocket, const char * aRequest);
 static int ProcessRequest (int aSocket);
 static int ProcessRequests(int aSocket);
 
+static bool ReadAllowedClientAddresses();
+
 static unsigned int ReadFile(const char * aFileName, void * aOut, unsigned int aOutSize_byte);
 
 static void SendData  (int aSocket, const void * aData, unsigned int aSize_byte);
@@ -56,12 +78,19 @@ static void SendOutput(int aSocket, const char * aExecName);
 static void Trace(const char        * aMsg   );
 static void Trace(const sockaddr_in & aAddrIn);
 
+static bool ValidateClientAddress(const sockaddr_in & aAddrIn);
+
 // Entry point
 /////////////////////////////////////////////////////////////////////////////
 
 int main()
 {
     Trace("TinyHTTP - Version 0.0");
+
+    if (!ReadAllowedClientAddresses())
+    {
+        return __LINE__;
+    }
 
     int lSocket = CreateAndBindSocket();
     if (0 > lSocket)
@@ -260,7 +289,10 @@ int ProcessRequests(int aSocket)
         int lSocket = accept(aSocket, reinterpret_cast<sockaddr *>(&lAddr), &lSize_byte);
         if (0 < lSocket)
         {
-            lResult = ProcessRequest(lSocket);
+            if (ValidateClientAddress(lAddr))
+            {
+                lResult = ProcessRequest(lSocket);
+            }
 
             Trace("Closing connexion ...");
 
@@ -281,6 +313,54 @@ int ProcessRequests(int aSocket)
     while (RESULT_CONTINUE == lResult);
 
     return lResult;
+}
+
+bool ReadAllowedClientAddresses()
+{
+    FILE * lFile = fopen("../AllowedClientAddresses.txt", "r");
+    if (NULL == lFile)
+    {
+        DisplayError("FATAL ERROR", "fopen( ,  ) failed");
+        return false;
+    }
+
+    char lLine[1024];
+
+    memset(&lLine, 0, sizeof(lLine));
+
+    while(NULL != fgets(lLine, sizeof(lLine), lFile))
+    {
+        char lAddress[1024];
+        char lMask   [1024];
+
+        memset(&lAddress, 0, sizeof(lAddress));
+        memset(&lMask   , 0, sizeof(lMask   ));
+
+        if (2 == sscanf(lLine, "%s %s", lAddress, lMask))
+        {
+            AddressMaskPair lAMP;
+
+            if (   (1 == inet_pton(AF_INET, lAddress, &lAMP.mAddress))
+                && (1 == inet_pton(AF_INET, lMask   , &lAMP.mMask   )))
+            {
+                sAllowedClients.push_back(lAMP);
+            }
+            else
+            {
+                DisplayError("WARNING", "Invalid address or mask");
+                Trace(lLine);
+            }
+        }
+        else
+        {
+            DisplayError("WARNING", "Invalid line");
+            Trace(lLine);
+        }
+    }
+
+    fclose(lFile);
+
+    return true;
 }
 
 // aFileName [---;R--]
@@ -434,4 +514,22 @@ void Trace(const sockaddr_in & aAddrIn)
     assert(NULL != (&aAddrIn));
 
     printf("0x%08x:%u (%u)\n", aAddrIn.sin_addr.s_addr, ntohs(aAddrIn.sin_port), aAddrIn.sin_family);
+}
+
+// aAddrIn [---;R--]
+bool ValidateClientAddress(const sockaddr_in & aAddrIn)
+{
+    assert(NULL != (&aAddrIn));
+
+    for (AddressMaskPairList::iterator lIt = sAllowedClients.begin(); lIt != sAllowedClients.end(); lIt ++)
+    {
+        if ((aAddrIn.sin_addr.s_addr & lIt->mMask.s_addr) == (lIt->mAddress.s_addr & lIt->mMask.s_addr))
+        {
+            return true;
+        }
+    }
+
+    DisplayError("ERROR", "Invalid client address");
+    Trace(aAddrIn);
+    return false;
 }
