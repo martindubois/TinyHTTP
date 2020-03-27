@@ -194,10 +194,10 @@ int ProcessGet(int aSocket, const char * aRequest)
 
     int lResult = RESULT_CONTINUE;
 
-    if (0 == strcmp ("/"               , aRequest   )) { SendFile  (aSocket, "/index.htm"      ); }
-    if (0 == strncmp("/execute/"       , aRequest, 9)) { SendOutput(aSocket, aRequest + 9      ); }
-    if (0 == strcmp ("/server_stop.htm", aRequest   )) { SendFile  (aSocket, "/server_stop.htm"); lResult = RESULT_STOP; }
-    else                                               { SendFile  (aSocket, aRequest          ); }
+    if      (0 == strcmp ("/"               , aRequest   )) { SendFile  (aSocket, "/index.htm"      ); }
+    else if (0 == strncmp("/execute/"       , aRequest, 9)) { SendOutput(aSocket, aRequest + 9      ); }
+    else if (0 == strcmp ("/server_stop.htm", aRequest   )) { SendFile  (aSocket, "/server_stop.htm"); lResult = RESULT_STOP; }
+    else                                                    { SendFile  (aSocket, aRequest          ); }
 
     return lResult;
 }
@@ -227,7 +227,7 @@ int ProcessRequest(int aSocket)
 {
     assert(0 < aSocket);
 
-    Trace("Processing request ...\n");
+    Trace("Processing request ...");
 
     char lBuffer[1024];
 
@@ -239,10 +239,6 @@ int ProcessRequest(int aSocket)
 
     int lResult = ProcessRequest(aSocket, lBuffer);
 
-    Trace("Closing connexion ...\n");
-
-    CloseSocket(aSocket);
-
     return lResult;
 }
 
@@ -250,7 +246,7 @@ int ProcessRequests(int aSocket)
 {
     assert(0 < aSocket);
 
-    Trace("Processing requests ...\n");
+    Trace("Processing requests ...");
 
     int lResult = RESULT_CONTINUE;
 
@@ -265,6 +261,10 @@ int ProcessRequests(int aSocket)
         if (0 < lSocket)
         {
             lResult = ProcessRequest(lSocket);
+
+            Trace("Closing connexion ...");
+
+            CloseSocket(lSocket);
         }
         else
         {
@@ -303,7 +303,7 @@ unsigned int ReadFile(const char * aFileName, void * aOut, unsigned int aOutSize
         int lRet = fread(aOut, 1, aOutSize_byte, lFile);
         if (0 > lRet)
         {
-            DisplayError("ERROR", "fread( , , ,  )", lRet);
+            DisplayError("ERROR", "fread( , , ,  ) failed", lRet);
         }
         else
         {
@@ -318,7 +318,7 @@ unsigned int ReadFile(const char * aFileName, void * aOut, unsigned int aOutSize
         lRet = fclose(lFile);
         if (0 != lRet)
         {
-            DisplayError("WARNING", "fclose(  )", lRet);
+            DisplayError("WARNING", "fclose(  ) failed", lRet);
         }
     }
 
@@ -337,7 +337,7 @@ void SendData(int aSocket, const char * aData, unsigned int aSize_byte)
     ssize_t lSent_byte = write(aSocket, aData, aSize_byte);
     if (aSize_byte != lSent_byte)
     {
-        DisplayError("ERROR", "write( , ,  )", lSent_byte);
+        DisplayError("ERROR", "write( , ,  ) failed", lSent_byte);
     }
 }
 
@@ -416,7 +416,7 @@ void SendOutput(int aSocket, const char * aExecName)
     }
     else
     {
-        SendHeader(aSocket, 404, "ERROR", 0);
+        SendFile(aSocket, "/404.htm", 404, "ERROR");
     }
 }
 
