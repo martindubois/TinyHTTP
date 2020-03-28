@@ -47,6 +47,15 @@ typedef std::list<AddressMaskPair> AddressMaskPairList;
 #define RESULT_CONTINUE (1)
 #define RESULT_STOP     (2)
 
+static const char * ALLOWED_EXEC[] =
+{
+    "date"  ,
+    "ls"    ,
+    "uptime",
+
+    NULL
+};
+
 // Static variable
 /////////////////////////////////////////////////////////////////////////////
 
@@ -81,6 +90,7 @@ static void Trace(const char        * aMsg   );
 static void Trace(const sockaddr_in & aAddrIn);
 
 static bool ValidateClientAddress(const sockaddr_in & aAddrIn);
+static bool ValidateExecName     (const char * aExecName);
 static bool ValidateFileName     (const char * aFileName);
 
 // Entry point
@@ -505,9 +515,15 @@ void SendOutput(int aSocket, const char * aExecName)
     assert(   0 <  aSocket  );
     assert(NULL != aExecName);
 
+    if (!ValidateExecName(aExecName))
+    {
+        SendFile(aSocket, "/404.htm", 404, "ERROR");
+        return;
+    }
+
     char lCommand[128];
 
-    sprintf(lCommand, "%s > ../Data/Output.txt", aExecName);
+    sprintf(lCommand, "cd ../Data ; %s > ../Data/Output.txt", aExecName);
 
     int lRet = system(lCommand);
     if (0 == lRet)
@@ -518,6 +534,8 @@ void SendOutput(int aSocket, const char * aExecName)
     {
         SendFile(aSocket, "/404.htm", 404, "ERROR");
     }
+
+    unlink("../Data/Output.txt");
 }
 
 // aMsg [---;R--]
@@ -551,6 +569,26 @@ bool ValidateClientAddress(const sockaddr_in & aAddrIn)
 
     DisplayError("ERROR", "Invalid client address");
     Trace(aAddrIn);
+    return false;
+}
+
+// aExecName [---;R--]
+bool ValidateExecName(const char * aExecName)
+{
+    assert(NULL != aExecName);
+
+    unsigned int lIndex = 0;
+
+    while (NULL != ALLOWED_EXEC[lIndex])
+    {
+        if (0 == strcmp(ALLOWED_EXEC[lIndex], aExecName))
+        {
+            return true;
+        }
+
+        lIndex ++;
+    }
+
     return false;
 }
 
