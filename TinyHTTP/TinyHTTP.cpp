@@ -81,6 +81,7 @@ static void Trace(const char        * aMsg   );
 static void Trace(const sockaddr_in & aAddrIn);
 
 static bool ValidateClientAddress(const sockaddr_in & aAddrIn);
+static bool ValidateFileName     (const char * aFileName);
 
 // Entry point
 /////////////////////////////////////////////////////////////////////////////
@@ -444,6 +445,12 @@ void SendFile(int aSocket, const char * aFileName, unsigned int aStatusCode, con
     Trace("Sending file ...");
     Trace(aFileName);
 
+    if (!ValidateFileName(aFileName))
+    {
+        SendFile(aSocket, "/404.htm", 404, "ERROR");
+        return;
+    }
+
     char lFileName[16];
 
     sprintf(lFileName, "../Data%s", aFileName);
@@ -545,4 +552,17 @@ bool ValidateClientAddress(const sockaddr_in & aAddrIn)
     DisplayError("ERROR", "Invalid client address");
     Trace(aAddrIn);
     return false;
+}
+
+// aFileName [---;R--]
+bool ValidateFileName(const char * aFileName)
+{
+    assert(NULL != aFileName);
+
+    if ('/' != aFileName[0]) { return false; }
+
+    if (0 == strncmp("/../", aFileName, 4)) { return false; }
+    if (0 == strncmp("/./" , aFileName, 3)) { return false; }
+
+    return true;
 }
